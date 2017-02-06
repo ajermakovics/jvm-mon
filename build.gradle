@@ -1,0 +1,64 @@
+plugins {
+    id "com.moowork.node" version "1.1.1"
+}
+group 'org.andrejs'
+version '0.1'
+
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'maven'
+
+sourceCompatibility = 1.8
+
+mainClassName = 'JvmMon'
+
+repositories {
+    mavenCentral()
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+    compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0'
+    compile 'com.eclipsesource.j2v8:j2v8_linux_x86_64:4.6.0'
+    compile 'com.github.ajermakovics:jvmtop:master-SNAPSHOT'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': archivesBaseName, 'Implementation-Version': version
+        attributes "Main-Class": mainClassName
+        attributes 'Class-Path': configurations.runtime.collect { it.name }.join(' ')
+    }
+}
+
+startScripts {
+    classpath = files('$APP_HOME/lib/' + jar.archiveName, '$APP_HOME/lib/tools.jar')
+    doLast {
+        def unixScriptFile    = file getUnixScript()
+        unixScriptFile.text  = unixScriptFile.text.replace('$APP_HOME/lib/tools.jar', '$JAVA_HOME/lib/tools.jar')
+    }
+}
+
+task npmDeps(type: NpmTask) {
+    args = ['install', 'blessed', 'blessed-contrib']
+    doFirst {
+        def node_modules = file("node_modules")
+        node_modules.mkdirs()
+    }
+}
+
+task createNodeModules(dependsOn: npmDeps) {
+    def node_modules = file("node_modules")
+    outputs.dir node_modules
+}
+
+distributions {
+    main {
+        contents {
+            from(createNodeModules) {
+                into "node_modules"
+            }
+        }
+    }
+}
