@@ -17,7 +17,7 @@ To install:
 
 Usage:
 - Select a JVM process and press `Enter` to monitor it
-- Press `Esq` to exit
+- Press `Esc` to exit
 
 # What is available
 
