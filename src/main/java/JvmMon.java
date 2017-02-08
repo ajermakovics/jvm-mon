@@ -1,15 +1,21 @@
 import com.eclipsesource.v8.*;
 import com.jvmtop.monitor.VMInfo;
 import com.jvmtop.monitor.VMInfoState;
+import com.jvmtop.view.VMDetailView;
 import com.jvmtop.view.VMOverviewView;
 
+import java.io.IOError;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.eclipsesource.v8.utils.V8ObjectUtils.toV8Array;
 
 public class JvmMon implements JavaCallback {
 
-    static NodeJS nodeJS = NodeJS.createNodeJS(); //nodeJS.require(new File("blessed-contrib"));
+    static NodeJS nodeJS = NodeJS.createNodeJS();
     static V8 v8 = nodeJS.getRuntime();
 
     public static void main(String[] args) throws Exception {
@@ -19,7 +25,7 @@ public class JvmMon implements JavaCallback {
         }
 
         JvmMon jvmMon = new JvmMon();
-        jvmMon.update();
+
         nodeJS.getRuntime().registerJavaMethod(jvmMon, "getData");
         nodeJS.getRuntime().executeScript("var refreshDelay = 1000");
 
@@ -33,38 +39,76 @@ public class JvmMon implements JavaCallback {
     }
 
     private VMOverviewView vmOverviewView = new VMOverviewView(0);
+    private VMDetailView vmDetailView;
 
-    public void update() throws Exception {
+    JvmMon() throws Exception {
+        update(0);
+        vmDetailView = new VMDetailView(vmOverviewView.getVMInfoList().get(0));
+    }
+
+    public void update(int vmId) throws Exception {
         vmOverviewView.updateVMs(vmOverviewView.scanForNewVMs());
+
+        if(vmId != 0 && vmId != vmDetailView.getVmId())
+            vmDetailView = new VMDetailView(vmOverviewView.getVMInfo(vmId));
     }
 
     private V8Array getVmStats() throws Exception {
-        V8Array res = new V8Array(v8);
-
-        vmOverviewView.getVMInfoList().stream()
+        List<V8Object> vmStats = vmOverviewView.getVMInfoList().stream()
                 .filter(vm -> vm.getState() == VMInfoState.ATTACHED)
-                .map(this::toJsObject)
-                .forEach(res::push);
+                .map(this::toVmJsObject)
+                .map(vmJs -> maybeAddThreads(vmJs, vmDetailView))
+                .collect(Collectors.toList());
 
-        return res;
+        return toV8Array(v8, vmStats);
     }
 
-    private V8Object toJsObject(VMInfo vm) {
-        V8Object res = new V8Object(v8);
-        res.add("Id", vm.getId());
-        res.add("DisplayName", displayName(vm));
-        res.add("HeapUsed", vm.getHeapUsed());
-        res.add("HeapMax", vm.getHeapMax());
-        res.add("HeapSize", vm.getHeapSize());
-        res.add("NonHeapUsed", vm.getNonHeapUsed());
-        res.add("NonHeapMax", vm.getNonHeapMax());
-        res.add("CpuLoad", vm.getCpuLoad());
-        res.add("GcLoad", vm.getGcLoad());
-        res.add("VMVersion", vm.getVMVersion());
-        res.add("OSUser", vm.getOSUser());
-        res.add("ThreadCount", vm.getThreadCount());
-        res.add("hasDeadlockThreads", vm.hasDeadlockThreads());
-        return res;
+    private V8Object maybeAddThreads(V8Object vmJs, VMDetailView view) {
+        if(vmJs.getInteger("Id") == view.getVmId()) {
+            try {
+                List<V8Object> threads = view.getTopThreads().stream()
+                        .map(this::toThreadJs)
+                        .collect(Collectors.toList());
+                vmJs.add("threads", toV8Array(v8, threads));
+            } catch (Exception e) {
+                throw new IOError(e);
+            }
+        }
+        return vmJs;
+    }
+
+    private V8Object toThreadJs(VMDetailView.ThreadStats ts) {
+        V8Object threadJs = new V8Object(v8);
+        threadJs.add("TID", ts.TID);
+        threadJs.add("name", ts.name);
+        threadJs.add("state", ts.state.toString());
+        threadJs.add("cpu", ts.cpu);
+        threadJs.add("totalCpu", ts.totalCpu);
+        threadJs.add("blockedBy", ts.blockedBy);
+        return threadJs;
+    }
+
+    private V8Object toVmJsObject(VMInfo vm) {
+        V8Object vmJs = new V8Object(v8);
+        vmJs.add("Id", vm.getId());
+        vmJs.add("DisplayName", displayName(vm));
+        vmJs.add("HeapUsed", vm.getHeapUsed());
+        vmJs.add("HeapMax", vm.getHeapMax());
+        vmJs.add("HeapSize", vm.getHeapSize());
+        vmJs.add("NonHeapUsed", vm.getNonHeapUsed());
+        vmJs.add("NonHeapMax", vm.getNonHeapMax());
+        vmJs.add("CpuLoad", vm.getCpuLoad());
+        vmJs.add("GcLoad", vm.getGcLoad());
+        vmJs.add("VMVersion", vm.getVMVersion());
+        vmJs.add("OSUser", vm.getOSUser());
+        vmJs.add("ThreadCount", vm.getThreadCount());
+        vmJs.add("hasDeadlockThreads", vm.hasDeadlockThreads());
+        return vmJs;
+    }
+
+    private V8Object addThreadStats(V8Object vm) {
+        vm.getInteger("Id");
+        return vm;
     }
 
     private String displayName(VMInfo vm) {
@@ -77,11 +121,12 @@ public class JvmMon implements JavaCallback {
     @Override
     public Object invoke(V8Object receiver, V8Array parameters) {
         try {
-            update();
+            int vmId = parameters.getInteger(0);
+            update(vmId);
             return getVmStats();
         } catch (Exception e) {
-            e.printStackTrace();
-            return new V8Array(v8);
+            throw new IOError(e);
         }
     }
+
 }

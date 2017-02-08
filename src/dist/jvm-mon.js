@@ -19,12 +19,9 @@ var table = grid.set(0, 0, 1, 2, contrib.table,
  , selectedBg: 'blue'
  , interactive: true
  , label: 'JVM Processes'
-// , width: '30%'
-// , height: '30%'
  , border: {type: "line", fg: "cyan"}
  , columnSpacing: 4 //in chars
  , columnWidth: [6, 16, 10, 10, 10, 10] /*in chars*/ })
-
 
 var line = grid.set(0, 2, 1, 2, contrib.line,
 {
@@ -56,41 +53,53 @@ var memLine = grid.set(1, 2, 1, 2, contrib.line,
          }
 })
 
-var cpuDonut = grid.set(1, 0, 1, 1, contrib.donut, {
-    label: 'CPU',
-    radius: 20,
-    arcWidth: 4,
-    remainColor: 'black',
-    yPadding: 2,
-    data: [ ]
-  });
+var threadTable = grid.set(1, 0, 1, 2, contrib.table,
+ { keys: false
+ , fg: 'white'
+ , selectedFg: 'white'
+ , selectedBg: 'blue'
+ , interactive: false
+ , label: 'Threads'
+ , border: {type: "line", fg: "cyan"}
+ , columnSpacing: 4 //in chars
+ , columnWidth: [6, 16, 12, 10, 10] /*in chars*/ })
+// ["TID", "Name", "State", "CPU", "Total CPU"], data:[]};
 
-var bar = grid.set(1, 1, 1, 1, contrib.stackedBar,
-       { label: 'Heap (MB)'
-       , barWidth: 6
-       , barSpacing: 6
-       , xOffset: 5
-       //, maxValue: 15
-//       , height: "40%"
-//       , width: "50%"
-       , barBgColor: [ 'red', 'cyan']})
+var prompt = blessed.question({
+                           parent: screen,
+                           border: 'line',
+                           height: 'shrink',
+                           width: 'half',
+                           top: 'center',
+                           left: 'center',
+                           label: ' {blue-fg}Question{/blue-fg} (Enter=Ok, Esc=Cancel)',
+                           tags: true,
+                           keys: true,
+                           vi: true
+                         });
 
 //----------------------
 screen.append(table)
-screen.append(cpuDonut)
-screen.append(bar)
+screen.append(threadTable)
 screen.append(line)
 screen.append(memLine)
+screen.append(prompt);
 
 //allow control the table with the keyboard
 table.focus()
 
-screen.key(['escape', 'q', 'C-c'], function(ch, key) {
+screen.key(['q', 'C-c'], function(ch, key) {
  return process.exit(0);
 });
 
-screen.key(['space'], function(ch, key) {
-    addData(getData());
+screen.key(['delete', 'backspace'], function(ch, key) {
+    var vm = table.vms[table.rows.selected];
+    var pid = vm.Id
+    prompt.ask('Kill ' + vm.DisplayName.trunc(16) + ' (' + pid + ')?', function (err, val) {
+        if(val)
+            process.kill(pid, 'SIGTERM')
+    })
+    prompt.focus()
 });
 
 String.prototype.trunc = function(n){
@@ -102,12 +111,12 @@ var startTime = Math.floor(Date.now() / 1000);
 table.rows.on("select", function (item) {
     table.selectedItem = table.rows.getItemIndex(item);
     var vm = table.vms[table.selectedItem];
-    renderVmCharts(vm.Id);
-    renderVmStats(vm);
+    table.selectedVmId = vm.Id;
+    renderVmCharts(vm);
+    renderThreads();
     screen.render();
 });
 
-// set initial data
 screen.render()
 
 function addData(vms) {
@@ -138,40 +147,39 @@ function addData(vms) {
 
     if(vms.length) {
         var selectedVm = vms[table.selectedItem || 0]
-        renderVmCharts(selectedVm.Id)
-        renderVmStats(selectedVm);
+        renderVmCharts(selectedVm)
+        renderThreads(selectedVm.threads)
+        table.selectedVmId = selectedVm.Id
+        threadTable.setLabel('Threads (' + selectedVm.ThreadCount + ') ')
     }
 
     screen.render()
 }
 
-function formatTime(time) {
-    var sec = time%60;
-    return Math.floor(time/60) + ':' + ((sec<10)?'0':'') + sec;
+function renderThreads(threads) {
+    var tableData = {headers:["TID", "Name", "State", "CPU", "TotalCPU"], data:[]};
+
+    if(threads) {
+        for(var i = 0; i < threads.length; i++) {
+            var th = threads[i];
+            var row = [th.TID, th.name.trunc(16), th.state.trunc(11), pct(th.cpu), pct(th.totalCpu)];
+            tableData.data.push(row)
+        }
+    }
+
+    threadTable.setData(tableData);
 }
 
-function renderVmCharts(vmId) {
-    var vmHist = hist[vmId]
+function renderVmCharts(vm) {
+    var vmHist = hist[vm.Id]
     var cpuData = {title: 'CPU', x: times, y: vmHist.cpu, style: {line: 'yellow'}};
     var gcData = {title: 'GC', x: times, y: vmHist.gc, style: {line: 'blue'}};
     line.setData([gcData, cpuData]);
 
     var heapSizeData = {title: 'Size', x: times, y: vmHist.size, style: {line: 'red'}};
-    var heapUsageData = {title: 'Usage', x: times, y: vmHist.used, style: {line: 'cyan'}};
+    var heapUsageData = {title: 'Used ' + fmt(vm.HeapUsed), x: times, y: vmHist.used, style: {line: 'cyan'}};
     memLine.setData([heapSizeData, heapUsageData]);
-}
-
-function renderVmStats(vm) {
-    cpuDonut.setData([{percent: vm.CpuLoad, label: 'CPU', 'color': 'red'}]);
-
-    var freeHeap = vm.HeapSize - vm.HeapUsed;
-
-    bar.setData({
-       barCategory: ['Heap']
-       , stackedCategory: ['Used', 'Free']
-       , data:
-          [ [Math.floor(vm.HeapUsed/1024/1024), Math.floor(freeHeap/1024/1024)] ]
-       })
+    memLine.setLabel('Heap (MB), max=' + fmt(vm.HeapMax) + ', nonHeap=' + fmt(vm.NonHeapUsed));
 }
 
 function fmt(bytes, decimals) {
@@ -187,20 +195,11 @@ function pct(num) {
     return (num * 100).toFixed(2) + ' %'
 }
 
-setInterval(function() {
-    addData(getData());
-}, refreshDelay)
+function formatTime(time) {
+    var sec = time%60;
+    return Math.floor(time/60) + ':' + ((sec<10)?'0':'') + sec;
+}
 
-// "Id"
-// "DisplayName"
-// "HeapUsed"
-// "HeapSize"
-// "HeapMax"
-// "NonHeapUsed"
-// "NonHeapMax"
-// "CpuLoad"
-// "GcLoad"
-// "VMVersion"
-// "OSUser"
-// "ThreadCount"
-// "hasDeadlockThreads"
+setInterval(function() {
+    addData(getData(table.selectedVmId || 0));
+}, refreshDelay)

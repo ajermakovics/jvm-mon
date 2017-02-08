@@ -15,12 +15,13 @@ mainClassName = 'JvmMon'
 repositories {
     mavenCentral()
     maven { url "https://jitpack.io" }
+//    mavenLocal()
 }
 
 dependencies {
     compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0'
     compile 'com.eclipsesource.j2v8:j2v8_linux_x86_64:4.6.0'
-    compile 'com.github.ajermakovics:jvmtop:0.8.1'
+    compile 'com.github.ajermakovics:jvmtop:0.8.2'
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
 
@@ -37,6 +38,8 @@ startScripts {
     doLast {
         def unixScriptFile    = file getUnixScript()
         unixScriptFile.text  = unixScriptFile.text.replace('$APP_HOME/lib/tools.jar', '$JAVA_HOME/lib/tools.jar')
+        unixScriptFile.text  = unixScriptFile.text.replace('exec ', 'cd $APP_HOME;\nexec ')
+        unixScriptFile.text  = unixScriptFile.text.replace('exec ', '[ -f $JAVA_HOME/lib/tools.jar ] || echo \'$JAVA_HOME/lib/tools.jar not found\';\nexec ')
     }
 }
 

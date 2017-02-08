@@ -12,12 +12,13 @@ jvm-top lets you monitor your Java/Scala/.. server applications from the termina
 
 To install:
  1. Download the [release](https://github.com/ajermakovics/jvm-mon/releases) 
- 2. Unzip or untar
- 3. Run `./bin/jvm-mon`
+ 2. Unzip/untar
+ 3. Run `./bin/jvm-mon` from extracted directory
 
 Usage:
 - Select a JVM process and press `Enter` to monitor it
-- Press `Esc` to exit
+- Press `q` or `ctrl+c` to exit
+- Press `Del` or `Backspace` to kill a process
 
 # What is available
 
@@ -25,6 +26,7 @@ Currently it shows:
 - List of running JVM processes
 - Cpu and GC load
 - Heap size and usage
+- Top threads with cpu usage
 
 # Building from source
 
