@@ -2,7 +2,7 @@ plugins {
     id "com.moowork.node" version "1.1.1"
 }
 group 'org.andrejs'
-version '0.1'
+version '0.2'
 
 apply plugin: 'java'
 apply plugin: 'application'
