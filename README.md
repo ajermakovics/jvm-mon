@@ -51,6 +51,7 @@ The way it works is:
 Open to suggestions/contributions on what to add. This project was crafted in a one day so there's definitely room for improvment.
 Some ideas:
 - View process classpath and parameters
-- View threads
-- Thread count/Loaded classes
+- Loaded classes
 - Windows build
+- Profiler
+
