@@ -54,4 +54,5 @@ Some ideas:
 - Loaded classes
 - Windows build
 - Profiler
+- View JMX beans
 
