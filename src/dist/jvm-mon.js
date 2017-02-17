@@ -18,7 +18,7 @@ var table = grid.set(0, 0, 1, 2, contrib.table,
  , selectedFg: 'white'
  , selectedBg: 'blue'
  , interactive: true
- , label: 'JVM Processes'
+ , label: 'JVM Processes (Enter=Monitor, Del=Terminate)'
  , border: {type: "line", fg: "cyan"}
  , columnSpacing: 4 //in chars
  , columnWidth: [6, 16, 10, 10, 10, 10] /*in chars*/ })
