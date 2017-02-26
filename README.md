@@ -16,9 +16,9 @@ To run:
  3. Execute `./bin/jvm-mon` from extracted directory
 
 Usage:
-- Select a JVM process and press `Enter` to monitor it
-- Press `q` or `ctrl+c` to exit
-- Press `Del` or `Backspace` to kill a process
+- Select a JVM process and press <kbd>Enter</kbd> to monitor it
+- Press <kbd>q</kbd> or <kbd>Ctrl+C</kbd> to exit
+- Press <kbd>Del</kbd> or <kbd>Backspace</kbd> to kill a process
 
 # What is available
 
