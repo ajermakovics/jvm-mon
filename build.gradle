@@ -18,6 +18,7 @@ repositories {
 //    mavenLocal()
 }
 
+
 dependencies {
     compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0'
     compile 'com.eclipsesource.j2v8:j2v8_linux_x86_64:4.6.0'
@@ -37,6 +38,7 @@ startScripts {
     classpath = files('$APP_HOME/lib/' + jar.archiveName, '$APP_HOME/lib/tools.jar')
     doLast {
         def unixScriptFile    = file getUnixScript()
+	unixScriptFile.text  = unixScriptFile.text.replace('DEFAULT_JVM_OPTS=""', "DEFAULT_JVM_OPTS=\"-Duser.home=${rootProject.projectDir}\"")
         unixScriptFile.text  = unixScriptFile.text.replace('$APP_HOME/lib/tools.jar', '$JAVA_HOME/lib/tools.jar')
         unixScriptFile.text  = unixScriptFile.text.replace('exec ', 'cd $APP_HOME;\nexec ')
         unixScriptFile.text  = unixScriptFile.text.replace('exec ', '[ -f $JAVA_HOME/lib/tools.jar ] || echo \'$JAVA_HOME/lib/tools.jar not found\';\nexec ')
