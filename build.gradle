@@ -2,7 +2,7 @@ plugins {
     id "com.moowork.node" version "1.1.1"
 }
 group 'org.andrejs'
-version '0.2'
+version '0.3'
 
 apply plugin: 'java'
 apply plugin: 'application'
@@ -39,13 +39,14 @@ startScripts {
     classpath = files('$APP_HOME/lib/' + jar.archiveName, '$APP_HOME/lib/tools.jar')
     doLast {
         def unixScriptFile    = file getUnixScript()
-	unixScriptFile.text  = unixScriptFile.text.replace('DEFAULT_JVM_OPTS=""', "DEFAULT_JVM_OPTS=\"-Duser.home=${rootProject.projectDir}\"")
-        unixScriptFile.text  = unixScriptFile.text.replace('$APP_HOME/lib/tools.jar', '$JAVA_HOME/lib/tools.jar')
-        unixScriptFile.text  = unixScriptFile.text.replace('exec ', 'cd $APP_HOME;\nexec ')
-        unixScriptFile.text  = unixScriptFile.text.replace('exec ', '[ -f $JAVA_HOME/lib/tools.jar ] || echo \'$JAVA_HOME/lib/tools.jar not found\';\nexec ')
+        unixScriptFile.text = file("src/main/resources/jvm-mon").text
         def windowsScriptFile    = file getWindowsScript()
         windowsScriptFile.text  = windowsScriptFile.text.replace('%APP_HOME%\\lib\\tools.jar', '%JAVA_HOME%\\lib\\tools.jar')
     }
+}
+
+tasks.withType(Tar){
+    compression = Compression.GZIP
 }
 
 task npmDeps(type: NpmTask) {
