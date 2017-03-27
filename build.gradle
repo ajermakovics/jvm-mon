@@ -22,6 +22,7 @@ repositories {
 dependencies {
     compile 'com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0'
     compile 'com.eclipsesource.j2v8:j2v8_linux_x86_64:4.6.0'
+    compile 'com.eclipsesource.j2v8:j2v8_win32_x86_64:4.6.0'
     compile 'com.github.ajermakovics:jvmtop:0.8.2'
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
@@ -39,6 +40,8 @@ startScripts {
     doLast {
         def unixScriptFile    = file getUnixScript()
         unixScriptFile.text = file("src/main/resources/jvm-mon").text
+        def windowsScriptFile    = file getWindowsScript()
+        windowsScriptFile.text  = windowsScriptFile.text.replace('%APP_HOME%\\lib\\tools.jar', '%JAVA_HOME%\\lib\\tools.jar')
     }
 }
 
