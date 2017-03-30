@@ -10,7 +10,13 @@ jvm-top lets you monitor your Java/Scala/.. server applications from the termina
 
 *Requirement*: a JDK8 on the server and `JAVA_HOME` environment variable pointing to it. It won't work with just a JRE.
 
-To run:
+## MacOS
+
+```
+brew install jvm-mon
+```
+
+## Install
  1. Download the [release](https://github.com/ajermakovics/jvm-mon/releases) and extract
  2. Set `JAVA_HOME` environment variable: `export JAVA_HOME=/path/to/your/jdk8`
  3. Execute `./bin/jvm-mon` from extracted directory
