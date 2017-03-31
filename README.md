@@ -6,7 +6,7 @@ jvm-top lets you monitor your Java/Scala/.. server applications from the termina
 
 ![sample](https://github.com/ajermakovics/jvm-mon/releases/download/0.1/jvm-mon.png)
 
-# Running
+# Install
 
 *Requirement*: a JDK8 on the server and `JAVA_HOME` environment variable pointing to it. It won't work with just a JRE.
 
@@ -16,12 +16,13 @@ jvm-top lets you monitor your Java/Scala/.. server applications from the termina
 brew install jvm-mon
 ```
 
-## Install
+## Linux/MacOS
  1. Download the [release](https://github.com/ajermakovics/jvm-mon/releases) and extract
  2. Set `JAVA_HOME` environment variable: `export JAVA_HOME=/path/to/your/jdk8`
  3. Execute `./bin/jvm-mon` from extracted directory
 
-Usage:
+# Usage
+
 - Select a JVM process and press <kbd>Enter</kbd> to monitor it
 - Press <kbd>q</kbd> or <kbd>Ctrl+C</kbd> to exit
 - Press <kbd>Del</kbd> or <kbd>Backspace</kbd> to kill a process
