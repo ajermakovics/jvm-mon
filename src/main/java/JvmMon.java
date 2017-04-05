@@ -105,12 +105,7 @@ public class JvmMon implements JavaCallback {
         vmJs.add("hasDeadlockThreads", vm.hasDeadlockThreads());
         return vmJs;
     }
-
-    private V8Object addThreadStats(V8Object vm) {
-        vm.getInteger("Id");
-        return vm;
-    }
-
+    
     private String displayName(VMInfo vm) {
         String name = vm.getDisplayName().trim();
         if(name.contains(" "))
