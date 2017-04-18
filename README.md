@@ -1,3 +1,5 @@
+[![Tests](https://circleci.com/gh/ajermakovics/jvm-mon.svg?style=svg)](https://circleci.com/gh/ajermakovics/jvm-mon)
+
 # jvm-mon
 
 Console based JVM monitoring
