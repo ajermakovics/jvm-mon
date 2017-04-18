@@ -1,3 +1,5 @@
+package jvmmon;
+
 import com.jvmtop.monitor.VMInfo;
 import com.jvmtop.monitor.VMInfoState;
 import com.jvmtop.view.VMDetailView;
@@ -17,7 +19,7 @@ public class JvmStats {
         update(0);
     }
 
-    List<Json> getVmStats(int vmId) throws Exception {
+    public List<Json> getVmStats(int vmId) throws Exception {
         update(vmId);
 
         List<VMInfo> vmInfos = vmOverviewView.getVMInfoList().stream()

@@ -1,5 +1,6 @@
 import com.eclipsesource.v8.*;
 import com.eclipsesource.v8.utils.V8ObjectUtils;
+import jvmmon.JvmStats;
 import org.andrejs.json.Json;
 
 import java.io.IOError;

@@ -1,5 +1,8 @@
+package jvmmon;
+
 import org.andrejs.json.Json;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
@@ -8,7 +11,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class JvmStatsTest {
 
-    private JvmStats jvmStats = new JvmStats();
+    private JvmStats jvmStats;
+
+    @Before
+    public void setUp() {
+        jvmStats = new JvmStats();
+    }
 
     @Test
     public void returnsAllVmStats_whenNoVmSelected() throws Exception {
