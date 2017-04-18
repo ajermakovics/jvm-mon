@@ -201,5 +201,7 @@ function formatTime(time) {
 }
 
 setInterval(function() {
-    addData(getData(table.selectedVmId || 0));
-}, refreshDelay)
+    var vmId = table.selectedVmId || 0;
+    var jvmStats = getJvmStats(vmId)
+    addData(jvmStats)
+}, 1000)
