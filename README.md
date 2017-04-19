@@ -1,4 +1,4 @@
-[![Tests](https://circleci.com/gh/ajermakovics/jvm-mon.svg?style=svg)](https://circleci.com/gh/ajermakovics/jvm-mon)
+[![Tests](https://circleci.com/gh/ajermakovics/jvm-mon.svg?style=shield)](https://circleci.com/gh/ajermakovics/jvm-mon)
 ![Homebrew](https://img.shields.io/homebrew/v/jvm-mon.svg?colorB=green)
 
 # jvm-mon
