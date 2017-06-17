@@ -7,7 +7,7 @@ Console based JVM monitoring - when you just want to SSH into a server and see w
 
 jvm-top lets you monitor your Java/Scala/.. server applications from the terminal. 
 
-![sample](https://github.com/ajermakovics/jvm-mon/releases/download/0.1/jvm-mon.png)
+![Screenshot](https://raw.githubusercontent.com/ajermakovics/jvm-mon/pages/site/jvm-mon.png)
 
 # Install
 
