@@ -1,2 +1,3 @@
 gradlew linguist-generated=true
 gradlew.bat linguist-generated=true
+src/main/resources/jvm-mon linguist-generated=true
