@@ -7,7 +7,7 @@ import com.eclipsesource.v8.V8Object
 import com.eclipsesource.v8.utils.V8ObjectUtils
 import jvmmon.JvmStats
 import java.io.File
-import java.io.File.pathSeparator
+import java.io.File.separator
 
 class JvmMon : JavaCallback {
 
@@ -48,7 +48,7 @@ class JvmMon : JavaCallback {
             return if (script.exists())
                 return script
             else {
-                File("src${pathSeparator}dist", "jvm-mon.js")
+                File("src${separator}dist", "jvm-mon.js")
             }
 
         }
