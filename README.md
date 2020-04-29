@@ -9,6 +9,12 @@ jvm-top lets you monitor your JVM server applications from the terminal.
 
 ![Screenshot](https://raw.githubusercontent.com/ajermakovics/jvm-mon/pages/site/jvm-mon.png)
 
+# New Version
+
+New version that works with Java 11:
+[1.0-ea1](https://github.com/ajermakovics/jvm-mon/releases/tag/1.0-ea1)
+(untar and run)
+
 # Install
 
 *Requirement*: a JDK8 on the server and `JAVA_HOME` environment variable pointing to it. It won't work with just a JRE.
