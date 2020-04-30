@@ -1,0 +1,27 @@
+hash: f1546e2bc55e94068af376febd58f4ace09f6e529aa4c3806eae0ec515cf60b3
+updated: 2020-04-13T17:44:19.696503645+01:00
+imports:
+- name: github.com/daaku/go.zipexe
+  version: 74d766ac1dde7458348221869a7d1e7e5fa0597e
+- name: github.com/GeertJohan/go.rice
+  version: cd53cd147dd5288bc2fb990fb983e58e301abb5e
+  subpackages:
+  - embedded
+- name: github.com/gizak/termui
+  version: 24acd523c756fd9728824cdfac66aad9d8982fb7
+- name: github.com/maruel/panicparse
+  version: 766956aceb8ff49664065ae50bef0ae8a0a83ec4
+  subpackages:
+  - stack
+- name: github.com/mattn/go-runewidth
+  version: a9d6d1e4dc51df2130326793d49971f238839169
+- name: github.com/mitchellh/go-wordwrap
+  version: ad45545899c7b13c020ea92b2072220eefad42b8
+- name: github.com/nsf/termbox-go
+  version: e2050e41c8847748ec5288741c0b19a8cb26d084
+- name: github.com/tokuhirom/go-hsperfdata
+  version: b58598ac84ee743a4c1fbc241718acaa02e0425d
+  subpackages:
+  - attach
+  - hsperfdata
+testImports: []

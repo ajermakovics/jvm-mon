@@ -1,0 +1,10 @@
+package: .
+import:
+- package: github.com/gizak/termui
+  version: v2.2.0
+- package: github.com/maruel/panicparse
+  version: v1.0.2
+- package: github.com/nsf/termbox-go
+- package: github.com/mattn/go-runewidth
+- package: github.com/GeertJohan/go.rice
+  version: v1.0.0

@@ -1,0 +1,23 @@
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+jar {
+    manifest {
+        attributes "Main-Class": "jvmmon.Agent"
+        attributes "Agent-Class": "jvmmon.Agent"
+        attributes "Premain-Class": "jvmmon.Agent"
+        attributes "Can-Redefine-Classes": 'false'
+        attributes "Can-Retransform-Classes": 'false'
+        attributes 'Can-Set-Native-Method-Prefix': 'false'
+    }
+}
+
+dependencies {
+    testCompile 'junit:junit:4.12'
+}

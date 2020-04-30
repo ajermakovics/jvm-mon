@@ -1,0 +1,18 @@
+*.ipr
+*.iml
+*.jar
+*.class
+*.iws
+rice-box.go
+# output and ide dirs
+build/
+target/
+out/
+.gradle/
+.vscode/
+vendor/
+.idea/
+
+# bin
+jvm-mon-go
+log

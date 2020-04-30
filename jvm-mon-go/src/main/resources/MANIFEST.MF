@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Premain-Class: jvmmon.Agent
+Agent-Class: jvmmon.Agent
+Can-Redefine-Classes: false
+Can-Retransform-Classes: false
+Can-Set-Native-Method-Prefix: false
+Main-Class: jvmmon.Agent
