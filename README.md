@@ -14,6 +14,9 @@ jvm-top lets you monitor your JVM server applications from the terminal.
 New version that works with Java 11:
 [1.0-ea1](https://github.com/ajermakovics/jvm-mon/releases/tag/1.0-ea1)
 (untar and run)
+- Single executable file
+- Does not require existing JDK
+- Attaches to running JVMs and loads an agent
 
 # Install
 
