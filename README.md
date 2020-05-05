@@ -1,5 +1,6 @@
 [![Tests](https://circleci.com/gh/ajermakovics/jvm-mon.svg?style=shield)](https://circleci.com/gh/ajermakovics/jvm-mon)
 ![Homebrew](https://img.shields.io/homebrew/v/jvm-mon.svg?colorB=green)
+![Release](https://img.shields.io/github/v/release/ajermakovics/jvm-mon?include_prereleases)
 
 # jvm-mon
 
@@ -11,12 +12,18 @@ jvm-top lets you monitor your JVM server applications from the terminal.
 
 # New Version
 
-New version that works with Java 11:
-[1.0-ea1](https://github.com/ajermakovics/jvm-mon/releases/tag/1.0-ea1)
-(untar and run)
+Release: [1.0-ea1](https://github.com/ajermakovics/jvm-mon/releases/tag/1.0-ea1)
+- Rewritten in Go 
 - Single executable file
-- Does not require existing JDK
-- Attaches to running JVMs and loads an agent
+- Can monitor applications on Java 8 and above
+- Does not require an existing JDK
+
+How it works:
+ - jvm-mon executable comes bundled with a Java agent jar
+ - On startup it extracts the agent to a temp directory
+ - It attaches to the JVM you want to monitor
+ - Loads agent into running JVM to collect metrics
+ - Agent and app establish a socket connection to send metrics
 
 # Install
 
