@@ -7,6 +7,16 @@ Supports monitoring application running on Java 8 and newer.
 - Contains embedded Java agent that gets loaded into monitored application
 - Does not require a JDK to run
 
+# Usage
+
+To monitor JVMs started with your username:
+
+`./jvm-mon-go`
+
+### Troubleshooting
+
+See the log at `/tmp/jvm-mon_(user).log`
+
 # Build from source
 
 Prerequisites:
@@ -16,12 +26,6 @@ Prerequisites:
 
 1. Build everything: `./build.sh`
 2. `./run.sh`: 
-
-# Usage
-
-To monitor JVMs started with your username:
-
-`./jvm-mon-go`
 
 # How it works
 
