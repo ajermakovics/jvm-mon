@@ -16,9 +16,9 @@ echo "Building $DIR"
 go build -o build/${DIR}
 
 rm build/*.tgz
-tar cvzf build/jvm-mon-osx.tgz -C build jvm-mon-go
-tar cvzf build/jvm-mon-linux64.tgz -C build/linux_amd64 jvm-mon-go
+tar cvzf build/jvm-mon-darwin-arm64.tgz -C build jvm-mon-go
+tar cvzf build/jvm-mon-linux-x64.tgz -C build/linux_amd64 jvm-mon-go
 
 #Mac:
 #GOOS=darwin
-#GOARCH=amd64
+#GOARCH=arm64

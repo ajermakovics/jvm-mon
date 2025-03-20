@@ -28,6 +28,7 @@ echo "Created agent jar: "
 unzip -l ./build/libs/${JAR}
 
 echo "Converting to Go embeddable"
+go install github.com/GeertJohan/go.rice/rice@latest
 rice embed-go
 
 ls -l ./build/libs/ | grep $JAR
