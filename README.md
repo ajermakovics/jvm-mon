@@ -12,7 +12,7 @@ jvm-top lets you monitor your JVM server applications from the terminal.
 
 # New Version
 
-Release: [1.1](https://github.com/ajermakovics/jvm-mon/releases/tag/1.1)
+Release: [1.2](https://github.com/ajermakovics/jvm-mon/releases/tag/1.2)
 - Rewritten in Go 
 - Single executable file
 - Can monitor applications on Java 8 and above
