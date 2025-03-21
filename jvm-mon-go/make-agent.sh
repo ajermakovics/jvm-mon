@@ -16,7 +16,7 @@ rm -rf ./build/libs/
 mkdir -p ./build/classes/
 mkdir -p ./build/libs/
 
-javac -cp ${SRC} -d build/classes ${MAIN}
+javac -source 8 -target 8 -cp ${SRC} -d build/classes ${MAIN}
 
 cd ./build/classes/
 echo "Adding manifest $MF"
@@ -24,8 +24,7 @@ jar -cvfm jvm-mon-go.jar ${MF} jvmmon
 mv ${JAR} ../libs/
 
 cd ${DIR}
-echo "Created agent jar: "
-unzip -l ./build/libs/${JAR}
+echo "Created agent jar"
 
 echo "Converting to Go embeddable"
 go install github.com/GeertJohan/go.rice/rice@latest

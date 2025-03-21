@@ -2,23 +2,31 @@
 
 ./make-agent.sh
 
-echo "Building"
-go build -o build/
-
-export GOOS=linux
-export GOARCH=amd64
-
+export GOOS=darwin
+export GOARCH=arm64
 DIR="${GOOS}_${GOARCH}"
 rm build/${DIR}/*
 mkdir -p build/${DIR}
-
 echo "Building $DIR"
-go build -o build/${DIR}
+go build -o build/${DIR}/jvm-mon
+
+export GOOS=darwin
+export GOARCH=amd64
+DIR="${GOOS}_${GOARCH}"
+rm build/${DIR}/*
+mkdir -p build/${DIR}
+echo "Building $DIR"
+go build -o build/${DIR}/jvm-mon
+
+export GOOS=linux
+export GOARCH=amd64
+DIR="${GOOS}_${GOARCH}"
+rm build/${DIR}/*
+mkdir -p build/${DIR}
+echo "Building $DIR"
+go build -o build/${DIR}/jvm-mon
 
 rm build/*.tgz
-tar cvzf build/jvm-mon-darwin-arm64.tgz -C build jvm-mon-go
-tar cvzf build/jvm-mon-linux-x64.tgz -C build/linux_amd64 jvm-mon-go
-
-#Mac:
-#GOOS=darwin
-#GOARCH=arm64
+tar cvzf build/jvm-mon-darwin-arm64.tgz -C build/darwin_arm64 jvm-mon
+tar cvzf build/jvm-mon-darwin-amd64.tgz -C build/darwin_arm64 jvm-mon
+tar cvzf build/jvm-mon-linux-x64.tgz -C build/linux_amd64 jvm-mon

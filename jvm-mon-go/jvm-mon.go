@@ -11,18 +11,21 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 )
 
-var pid, jar, port string
+var jar, port string
 var jvms map[string]JVM
 var server *Server
-var version = "1.1"
-var logFile *os.File
+var version = "1.2"
 var eb EventBus.Bus
 
 func init() {
+	if len(os.Args) > 1 && os.Args[1] == "-v" {
+		println("jvm-mon v:", version)
+		os.Exit(0)
+	}
+
 	user := GetCurUser()
 	var logErr error
 	logPath := os.TempDir() + string(os.PathSeparator) + "jvm-mon_" + user + ".log"
@@ -32,25 +35,20 @@ func init() {
 		panic(logErr)
 	}
 	log.SetOutput(logFile)
+	log.Println("jvm-mon v:", version, "user:", user)
 	println("jvm-mon v:", version, " user:", user, " log:", logPath)
 
 	jvms = GetJVMs()
-	log.Println("jvm-mon v", version)
 	log.Println("Found JVMs: ", len(jvms))
 
-	err := ui.Init()
-	if err != nil {
-		log.Fatal("Cannot initialize UI", err)
-		panic(err)
-	}
+	eb = EventBus.New()
 
-	server, err = NewServer()
-	if err != nil {
-		panic(err)
+	var serverErr error
+	server, serverErr = NewServer(eb)
+	if serverErr != nil {
+		panic(serverErr)
 	}
 	port = strconv.Itoa((*server).Port)
-
-	eb = EventBus.New()
 
 	go receiveMetrics()
 	go checkConnections()
@@ -58,8 +56,11 @@ func init() {
 
 func main() {
 	jar = loadJar()
-	if err := ui.Init(); err != nil {
-		log.Fatalf("failed to initialize termui: %v", err)
+
+	err := ui.Init()
+	if err != nil {
+		log.Fatal("Cannot initialize UI", err)
+		panic(err)
 	}
 	defer ui.Close()
 
@@ -67,7 +68,7 @@ func main() {
 	jvmTable := NewNavTable(jvms, "JVMs (v"+version+")", 9, eb)
 	memChart := NewMemChart(eb)
 	cpuChart := NewCpuChart(eb)
-	threadTable := NewThreadTable(9, eb)
+	threadTable := NewThreadTable(14, eb)
 
 	grid := ui.NewGrid()
 	termWidth, termHeight := ui.TerminalDimensions()
@@ -94,9 +95,8 @@ func main() {
 				eb.Publish("keyboard-events", e.ID)
 			}
 			switch e.ID {
-			case "q", "<C-c>":
+			case "q", "<C-c>": // exit
 				cleanUp()
-				ui.Close()
 				return
 			case "<Resize>":
 				payload := e.Payload.(ui.Resize)
@@ -110,6 +110,7 @@ func main() {
 
 func cleanUp() {
 	os.Remove(jar) // from temp
+	ui.Close()
 }
 
 func loadJar() string {
@@ -123,7 +124,7 @@ func loadJar() string {
 		panic(err)
 	}
 	stat, _ := jarFile.Stat()
-	log.Println("Found embeded jar file: ", stat.Size())
+	log.Println("Found embedded jar file: ", stat.Size())
 	jarBytes, err := box.Bytes("jvm-mon-go.jar")
 	if err != nil {
 		panic(err)
@@ -167,40 +168,19 @@ func receiveMetrics() {
 
 		eb.Publish("metrics", metrics)
 		eb.Publish("metrics.Threads", metrics.Threads)
-		//ui.SendCustomEvt("/metrics/mem", metrics)
-		//ui.SendCustomEvt("/metrics/cpu", metrics)
-		//ui.SendCustomEvt("/metrics/threads", metrics.Threads)
 	}
 }
 
 func monitor(pid string) {
 	log.Println("Monitoring pid: ", pid)
 	jvm := jvms[pid]
-	//ui.SendCustomEvt("/metrics/mem/clear", pid)
-	//ui.SendCustomEvt("/metrics/cpu/clear", pid)
 	go attachAgent(jvm, jar, port)
 }
 
 func attachAgent(jvm JVM, jar string, port string) {
 	err := jvm.AttachAndLoadAgent(jar, port)
 	if err != nil {
-		log.Println("Cannot attach to pid ", pid)
+		log.Println("Cannot attach to pid ", jvm.Pid)
+		eb.Publish("attach-error", jvm.Pid)
 	}
-}
-
-func findJar() string {
-	//workDir, _ := os.Getwd()
-	self, _ := os.Executable()
-	selfDir := filepath.Dir(self)
-
-	jar = filepath.Join(selfDir, "libs", "jvm-mon-go.jar") // during dev
-	if _, err := os.Stat(jar); os.IsNotExist(err) {
-		jar = filepath.Join(selfDir, "jvm-mon-go.jar")
-	}
-	if _, err := os.Stat(jar); os.IsNotExist(err) {
-		log.Fatal("Agent jar not found: ", jar, "Error: ", err)
-		panic(err)
-	}
-	log.Println("Agent jar file: ", jar)
-	return jar
 }

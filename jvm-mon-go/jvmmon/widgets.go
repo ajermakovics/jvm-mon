@@ -11,13 +11,10 @@ import (
 // "log"
 
 func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb EventBus.Bus) *widgets.Table {
-	labels := []string{"PID", "Ver.", "Main"}
+	labels := []string{"PID", "Ver.", "User", "Main"}
 	rows := [][]string{labels}
-	for key, jvm := range data {
-		rows = append(rows, []string{key, jvm.Version, jvm.ProcName})
-	}
-	for i := len(rows); i < rowCount+1; i++ {
-		rows = append(rows, []string{"", "", ""})
+	for pid, jvm := range data {
+		rows = append(rows, []string{pid, jvm.Version, jvm.User, jvm.ProcName})
 	}
 
 	table := widgets.NewTable()
@@ -26,7 +23,7 @@ func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb Event
 	table.Border = true
 	table.Title = borderLabel
 	table.TextAlignment = ui.AlignLeft
-	table.ColumnWidths = []int{7, 5, -1}
+	table.ColumnWidths = []int{6, 5, 10, -1}
 	table.RowSeparator = false
 
 	if len(data) == 0 {
@@ -60,30 +57,42 @@ func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb Event
 		}
 	}, false)
 
+	eb.SubscribeAsync("attach-error", func(pid string) {
+		rowIndex := findIndex(rows, pid)
+		if rowIndex > -1 {
+			table.RowStyles[rowIndex] = ui.NewStyle(ui.ColorRed)
+		}
+		ui.Render(table)
+	}, false)
+
 	return table
 }
 
-func NewThreadTable(rowCount int, eb EventBus.Bus) *widgets.Table {
-	labels := []string{"Id", "Name", "State", "CpuTime"}
-	rows := [][]string{labels}
-
-	for i := 0; i < rowCount; i++ {
-		rows = append(rows, []string{"  ", "                 ", "        ", "    "})
+func findIndex(matrix [][]string, needle string) int {
+	for i, row := range matrix {
+		if len(row) > 0 && row[0] == needle {
+			return i
+		}
 	}
+	return -1
+}
+
+func NewThreadTable(rowCount int, eb EventBus.Bus) *widgets.Table {
+	rows := [][]string{threadTableLabels()}
 
 	table := widgets.NewTable()
 	table.Rows = rows
 	table.TextStyle = ui.NewStyle(ui.ColorWhite)
 	table.Border = true
-	table.SetRect(0, 0, 20, 20)
 	table.Title = "Threads"
 	table.RowSeparator = false
+	table.ColumnWidths = []int{6, 15, 10, -1}
 
 	eb.Subscribe("metrics.Threads", func(threads Threads) {
 		threadArr := threads.Threads
 		table.Title = "Threads (" + strconv.Itoa(threads.Count) + ")"
 
-		rows := [][]string{threads.labels()}
+		rows := [][]string{threadTableLabels()}
 		for idx, thread := range threadArr {
 			rows = append(rows, thread.toRow())
 			if idx == rowCount-1 {
@@ -94,11 +103,17 @@ func NewThreadTable(rowCount int, eb EventBus.Bus) *widgets.Table {
 		ui.Render(table)
 	})
 
+	eb.Subscribe("jvm-selected", func(pid string) { // clear
+		table.Rows = [][]string{threadTableLabels()}
+		table.Title = "Threads"
+		ui.Render(table)
+	})
+
 	return table
 }
 
-func (t *Threads) labels() []string {
-	return []string{"Id", "Name", "State", "CpuTime"}
+func threadTableLabels() []string {
+	return []string{"Id", "State", "CpuTime", "Name"}
 }
 
 func (t *Thread) toRow() []string {
@@ -106,7 +121,7 @@ func (t *Thread) toRow() []string {
 	if t.CpuTime == 0 {
 		cpuTime = ""
 	}
-	return []string{strconv.FormatInt(t.Id, 10), t.Name, t.State, cpuTime}
+	return []string{strconv.FormatInt(t.Id, 10), t.State, cpuTime, t.Name}
 }
 
 func NewMemChart(eb EventBus.Bus) *widgets.SparklineGroup {
@@ -147,7 +162,6 @@ func NewCpuChart(eb EventBus.Bus) *widgets.Plot {
 	chart.TitleStyle.Fg = ui.ColorWhite
 	chart.AxesColor = ui.ColorWhite
 	chart.PlotType = widgets.LineChart
-	//chart.MaxVal = 100.0
 
 	eb.Subscribe("metrics", func(metrics Metrics) {
 		maxX := chart.Bounds().Max.X

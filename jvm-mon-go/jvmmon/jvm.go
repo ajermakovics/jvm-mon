@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/tokuhirom/go-hsperfdata/attach"
 	hs "github.com/tokuhirom/go-hsperfdata/hsperfdata"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -77,8 +78,12 @@ func logErr(msg string, err error) {
 
 func exists(path string) (bool, error) {
 	_, err := os.Stat(path)
-	if err == nil { return true, nil }
-	if os.IsNotExist(err) { return false, nil }
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
 	return true, err
 }
 
@@ -201,6 +206,7 @@ func GetJVMs() map[string]JVM {
 	jvms := map[string]JVM{}
 
 	users := GetJVMUsers()
+	log.Println("JVM users", len(users))
 
 	for _, usr := range users {
 		log.Println("Found JVM user", usr)
@@ -242,18 +248,26 @@ func GetUserJVMs(user string) (map[string]JVM, error) {
 			props := res.GetMap()
 			jvmVer := props["java.property.java.vm.specification.version"].(string)
 
-			//log.Println("Props for " + f.GetPid(), " - ", procName)
-			//for k, v := range res.GetMap() {
-			//	log.Println("Proc data: ", k, v)
-			//}
-			//log.Println("---")
-
 			jvm = JVM{f.GetPid(), procName, user, jvmVer, nil}
 		} else {
-			jvm = JVM{f.GetPid(), "", user, "", nil}
+			procName := getCmdline(f.GetPid())
+			jvm = JVM{f.GetPid(), procName, user, "", nil}
 		}
 		jvms[jvm.Pid] = jvm
 	}
 
 	return jvms, nil
+}
+
+func getCmdline(pid string) string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+	cmdlinePath := filepath.Join("/proc", pid, "cmdline")
+	cmdline, err := ioutil.ReadFile(cmdlinePath)
+	if err != nil {
+		log.Println("Cannot read ", cmdlinePath, err)
+		return ""
+	}
+	return strings.ReplaceAll(string(cmdline), "\x00", " ")
 }

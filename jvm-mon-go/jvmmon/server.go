@@ -1,21 +1,22 @@
 package jvmmon
 
 import (
-	"net"
-	"log"
 	"bufio"
+	"github.com/asaskevich/EventBus"
+	"log"
+	"net"
 )
 
 type Server struct {
 	Port     int
 	Messages chan string
 
-	listener net.Listener
-	client   net.Conn
+	listener    net.Listener
+	client      net.Conn
 	Connections chan net.Addr
 }
 
-func NewServer() (*Server, error) {
+func NewServer(eb EventBus.Bus) (*Server, error) {
 	listener, err := net.Listen("tcp", ":0")
 	if listener == nil {
 		log.Fatal("Cannot listen", err)
@@ -27,6 +28,10 @@ func NewServer() (*Server, error) {
 	connections := make(chan net.Addr)
 	server := Server{port, messages, listener, nil, connections}
 	go server.acceptConnections()
+
+	eb.Subscribe("jvm-selected", func(pid string) {
+		server.closeClient() // close existing
+	})
 
 	return &server, nil
 }

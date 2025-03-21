@@ -14,7 +14,7 @@ public class SocketWriter implements Runnable {
 
     private String host = "127.0.0.1";
     private int port;
-    private Duration sampleInterval = Duration.ofSeconds(1);
+    private Duration sampleInterval = Duration.ofSeconds(2);
     private Callable<String> messageSupplier;
 
     public SocketWriter(int port, Callable<String> messageSupplier) {
