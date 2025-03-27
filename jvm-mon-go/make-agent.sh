@@ -2,6 +2,8 @@
 
 # Convenience script for building the java agent
 
+set -euo pipefail
+
 DIR=`pwd`
 MF="$DIR/src/main/resources/MANIFEST.MF"
 SRC="$DIR/src/main/java"
@@ -25,10 +27,6 @@ mv ${JAR} ../libs/
 
 cd ${DIR}
 echo "Created agent jar"
-
-echo "Converting to Go embeddable"
-go install github.com/GeertJohan/go.rice/rice@latest
-rice embed-go
 
 ls -l ./build/libs/ | grep $JAR
 echo "Done"

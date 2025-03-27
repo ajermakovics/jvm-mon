@@ -3,15 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/GeertJohan/go.rice"
-	"github.com/GeertJohan/go.rice/embedded"
-	. "github.com/ajermakovics/jvm-mon-go/jvmmon"
-	"github.com/asaskevich/EventBus"
-	ui "github.com/gizak/termui/v3"
-	"io/ioutil"
 	"log"
 	"os"
 	"strconv"
+
+	. "github.com/ajermakovics/jvm-mon-go/jvmmon"
+	"github.com/asaskevich/EventBus"
+	ui "github.com/gizak/termui/v3"
+
+	_ "embed"
 )
 
 var jar, port string
@@ -19,6 +19,9 @@ var jvms map[string]JVM
 var server *Server
 var version = "1.2"
 var eb EventBus.Bus
+
+//go:embed build/libs/jvm-mon-go.jar
+var jarBytes []byte
 
 func init() {
 	if len(os.Args) > 1 && os.Args[1] == "-v" {
@@ -114,22 +117,8 @@ func cleanUp() {
 }
 
 func loadJar() string {
-	for boxName, _ := range embedded.EmbeddedBoxes {
-		log.Println("Embedded dir: ", boxName)
-	}
-
-	box := rice.MustFindBox(`build/libs`)
-	jarFile, err := box.Open(`jvm-mon-go.jar`)
-	if err != nil {
-		panic(err)
-	}
-	stat, _ := jarFile.Stat()
-	log.Println("Found embedded jar file: ", stat.Size())
-	jarBytes, err := box.Bytes("jvm-mon-go.jar")
-	if err != nil {
-		panic(err)
-	}
-	tmpJarFile, err := ioutil.TempFile(os.TempDir(), "jvm-mon-go.jar")
+	log.Println("Found embedded jar file: ", len(jarBytes))
+	tmpJarFile, err := os.CreateTemp(os.TempDir(), "jvm-mon-go.jar")
 	if _, err = tmpJarFile.Write(jarBytes); err != nil {
 		fmt.Println("Failed to write to temporary file", err)
 	}

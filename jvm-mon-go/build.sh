@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 ./make-agent.sh
 
 export GOOS=darwin
