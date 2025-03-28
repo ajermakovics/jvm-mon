@@ -17,7 +17,7 @@ import (
 var jar, port string
 var jvms map[string]JVM
 var server *Server
-var version = "1.2"
+var version = "1.3"
 var eb EventBus.Bus
 
 //go:embed build/libs/jvm-mon-go.jar
