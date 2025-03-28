@@ -30,5 +30,5 @@ go build -o build/${DIR}/jvm-mon
 
 rm build/*.tgz
 tar cvzf build/jvm-mon-darwin-arm64.tgz -C build/darwin_arm64 jvm-mon
-tar cvzf build/jvm-mon-darwin-amd64.tgz -C build/darwin_arm64 jvm-mon
+tar cvzf build/jvm-mon-darwin-amd64.tgz -C build/darwin_amd64 jvm-mon
 tar cvzf build/jvm-mon-linux-x64.tgz -C build/linux_amd64 jvm-mon
