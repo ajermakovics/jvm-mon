@@ -20,8 +20,7 @@ See the log at `/tmp/jvm-mon_(user).log`
 # Build from source
 
 Prerequisites:
-- Go (at least 1.13)
-- https://github.com/GeertJohan/go.rice for embedded files
+- Go (at least 1.18)
 - JDK 8+ for building java agent
 
 1. Build everything: `./build.sh`

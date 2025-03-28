@@ -3,7 +3,6 @@
 *.jar
 *.class
 *.iws
-rice-box.go
 # output and ide dirs
 build/
 target/
