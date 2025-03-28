@@ -98,7 +98,7 @@ func main() {
 				eb.Publish("keyboard-events", e.ID)
 			}
 			switch e.ID {
-			case "q", "<C-c>": // exit
+			case "q", "<C-c>", "<Escape>": // exit
 				cleanUp()
 				return
 			case "<Resize>":
