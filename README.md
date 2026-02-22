@@ -6,7 +6,7 @@
 
 Console based JVM monitoring - when you just want to SSH into a server and see what's going on.
 
-jvm-top lets you monitor your JVM server applications from the terminal. 
+jvm-mon lets you monitor your JVM server applications from the terminal. 
 
 ![Screenshot](https://raw.githubusercontent.com/ajermakovics/jvm-mon/pages/site/jvm-mon.png)
 
