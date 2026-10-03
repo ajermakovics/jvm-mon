@@ -4,7 +4,8 @@
 
 set -euo pipefail
 
-DIR=`pwd`
+cd "$(dirname "$0")"
+DIR="$(pwd)"
 MF="$DIR/src/main/resources/MANIFEST.MF"
 SRC="$DIR/src/main/java"
 MAIN="$SRC/jvmmon/Agent.java"
@@ -18,14 +19,20 @@ rm -rf ./build/libs/
 mkdir -p ./build/classes/
 mkdir -p ./build/libs/
 
-javac -source 8 -target 8 -cp ${SRC} -d build/classes ${MAIN}
+# --release 8 when supported (JDK 9+), else fall back to -source/-target
+if javac --release 8 -version >/dev/null 2>&1; then
+  JAVAC_TARGET="--release 8"
+else
+  JAVAC_TARGET="-source 8 -target 8"
+fi
+javac ${JAVAC_TARGET} -cp "${SRC}" -d build/classes "${MAIN}"
 
 cd ./build/classes/
 echo "Adding manifest $MF"
-jar -cvfm jvm-mon-go.jar ${MF} jvmmon
+jar -cvfm ${JAR} "${MF}" jvmmon
 mv ${JAR} ../libs/
 
-cd ${DIR}
+cd "${DIR}"
 echo "Created agent jar"
 
 ls -l ./build/libs/ | grep $JAR

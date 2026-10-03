@@ -1,34 +1,24 @@
 #!/bin/bash
+# Builds release binaries for all supported platforms
 
 set -euo pipefail
+cd "$(dirname "$0")"
 
 ./make-agent.sh
 
-export GOOS=darwin
-export GOARCH=arm64
-DIR="${GOOS}_${GOARCH}"
-rm build/${DIR}/*
-mkdir -p build/${DIR}
-echo "Building $DIR"
-go build -o build/${DIR}/jvm-mon
+go vet ./...
 
-export GOOS=darwin
-export GOARCH=amd64
-DIR="${GOOS}_${GOARCH}"
-rm build/${DIR}/*
-mkdir -p build/${DIR}
-echo "Building $DIR"
-go build -o build/${DIR}/jvm-mon
+build() {
+  local goos=$1 goarch=$2 name=$3
+  local dir="build/${goos}_${goarch}"
+  rm -rf "$dir"
+  mkdir -p "$dir"
+  echo "Building $dir"
+  GOOS=$goos GOARCH=$goarch CGO_ENABLED=0 go build -o "$dir/jvm-mon"
+  tar cvzf "build/jvm-mon-${name}.tgz" -C "$dir" jvm-mon
+}
 
-export GOOS=linux
-export GOARCH=amd64
-DIR="${GOOS}_${GOARCH}"
-rm build/${DIR}/*
-mkdir -p build/${DIR}
-echo "Building $DIR"
-go build -o build/${DIR}/jvm-mon
-
-rm build/*.tgz
-tar cvzf build/jvm-mon-darwin-arm64.tgz -C build/darwin_arm64 jvm-mon
-tar cvzf build/jvm-mon-darwin-amd64.tgz -C build/darwin_amd64 jvm-mon
-tar cvzf build/jvm-mon-linux-x64.tgz -C build/linux_amd64 jvm-mon
+rm -f build/*.tgz
+build darwin arm64 darwin-arm64
+build darwin amd64 darwin-amd64
+build linux amd64 linux-x64

@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	. "github.com/ajermakovics/jvm-mon-go/jvmmon"
@@ -23,20 +25,37 @@ var eb EventBus.Bus
 //go:embed build/libs/jvm-mon-go.jar
 var jarBytes []byte
 
-func init() {
-	if len(os.Args) > 1 && os.Args[1] == "-v" {
-		println("jvm-mon v:", version)
+// openLog opens the log in the user's private cache dir. If unavailable, it
+// falls back to a uniquely named temp file (CreateTemp never opens an
+// existing file, so pre-planted symlinks are not followed).
+func openLog() (*os.File, error) {
+	if dir, err := os.UserCacheDir(); err == nil {
+		dir = filepath.Join(dir, "jvm-mon")
+		if os.MkdirAll(dir, 0700) == nil {
+			path := filepath.Join(dir, "jvm-mon.log")
+			if f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600); err == nil {
+				return f, nil
+			}
+		}
+	}
+	return os.CreateTemp("", "jvm-mon-*.log")
+}
+
+func setup() {
+	showVersion := flag.Bool("v", false, "print version and exit")
+	flag.Parse()
+	if *showVersion {
+		fmt.Println("jvm-mon v:", version)
 		os.Exit(0)
 	}
 
 	user := GetCurUser()
-	var logErr error
-	logPath := os.TempDir() + string(os.PathSeparator) + "jvm-mon_" + user + ".log"
-	logFile, logErr := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND|os.O_TRUNC, 0666)
-	if logErr != nil {
-		log.Fatalf("Error opening %v file: %v", logPath, logErr)
-		panic(logErr)
+	logFile, err := openLog()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error opening log file: %v\n", err)
+		os.Exit(1)
 	}
+	logPath := logFile.Name()
 	log.SetOutput(logFile)
 	log.Println("jvm-mon v:", version, "user:", user)
 	println("jvm-mon v:", version, " user:", user, " log:", logPath)
@@ -49,21 +68,30 @@ func init() {
 	var serverErr error
 	server, serverErr = NewServer(eb)
 	if serverErr != nil {
-		panic(serverErr)
+		fmt.Fprintln(os.Stderr, "Cannot start server:", serverErr)
+		os.Exit(1)
 	}
-	port = strconv.Itoa((*server).Port)
+	port = strconv.Itoa(server.Port)
 
 	go receiveMetrics()
 	go checkConnections()
 }
 
 func main() {
-	jar = loadJar()
+	setup()
 
-	err := ui.Init()
+	var err error
+	jar, err = loadJar()
 	if err != nil {
-		log.Fatal("Cannot initialize UI", err)
-		panic(err)
+		fmt.Fprintln(os.Stderr, "Cannot extract agent jar:", err)
+		os.Exit(1)
+	}
+	defer os.Remove(jar)
+
+	if err = ui.Init(); err != nil {
+		_ = os.Remove(jar) // os.Exit skips deferred calls
+		fmt.Fprintln(os.Stderr, "Cannot initialize UI:", err)
+		os.Exit(1)
 	}
 	defer ui.Close()
 
@@ -86,7 +114,7 @@ func main() {
 			ui.NewCol(half, threadTable),
 			ui.NewCol(half, memChart)))
 
-	ui.Render(grid)
+	Render(grid)
 
 	eb.SubscribeAsync("jvm-selected", monitor, false)
 
@@ -98,60 +126,66 @@ func main() {
 				eb.Publish("keyboard-events", e.ID)
 			}
 			switch e.ID {
-			case "q", "<C-c>", "<Escape>": // exit
-				cleanUp()
+			case "q", "<C-c>", "<Escape>": // exit (deferred cleanup runs)
+				logErr(server.Close())
 				return
 			case "<Resize>":
 				payload := e.Payload.(ui.Resize)
-				grid.SetRect(0, 0, payload.Width, payload.Height)
-				ui.Clear()
-				ui.Render(grid)
+				WithUI(func() {
+					grid.SetRect(0, 0, payload.Width, payload.Height)
+					ui.Clear()
+					ui.Render(grid)
+				})
 			}
 		}
 	}
 }
 
-func cleanUp() {
-	os.Remove(jar) // from temp
-	ui.Close()
+func logErr(err error) {
+	if err != nil {
+		log.Println(err)
+	}
 }
 
-func loadJar() string {
+func loadJar() (string, error) {
 	log.Println("Found embedded jar file: ", len(jarBytes))
-	tmpJarFile, err := os.CreateTemp(os.TempDir(), "jvm-mon-go.jar")
-	if _, err = tmpJarFile.Write(jarBytes); err != nil {
-		fmt.Println("Failed to write to temporary file", err)
+	tmpJarFile, err := os.CreateTemp("", "jvm-mon-go-*.jar")
+	if err != nil {
+		return "", err
 	}
-	var tmpJarPath = tmpJarFile.Name()
+	tmpJarPath := tmpJarFile.Name()
+	if _, err = tmpJarFile.Write(jarBytes); err != nil {
+		_ = tmpJarFile.Close()
+		_ = os.Remove(tmpJarPath)
+		return "", err
+	}
+	if err = tmpJarFile.Close(); err != nil {
+		_ = os.Remove(tmpJarPath)
+		return "", err
+	}
 	log.Println("Created temp file ", tmpJarPath)
 
-	if err := tmpJarFile.Close(); err != nil {
-		fmt.Println(err)
-	}
-
-	err = os.Chmod(tmpJarPath, 0644)
-	if err != nil {
+	// target JVM may run as another user (root mode) and must be able to read the jar
+	if err = os.Chmod(tmpJarPath, 0644); err != nil {
 		log.Println("Cannot chmod ", tmpJarPath, " ", err)
 	}
 
-	return tmpJarPath
+	return tmpJarPath, nil
 }
 
 func checkConnections() {
 	for {
-		addr := <-(*server).Connections
+		addr := <-server.Connections
 		log.Println("JVM Connected ", addr)
 	}
 }
 
 func receiveMetrics() {
 	for {
-		msg := <-(*server).Messages
+		msg := <-server.Messages
 		var metrics Metrics
-		msgBytes := []byte(msg)
-		err := json.Unmarshal(msgBytes, &metrics)
-		if err != nil {
-			log.Fatal("Cannot unmarshal: ", msg, "err: ", err)
+		if err := json.Unmarshal([]byte(msg), &metrics); err != nil {
+			log.Println("Cannot unmarshal:", msg, "err:", err)
 			continue
 		}
 
@@ -162,14 +196,18 @@ func receiveMetrics() {
 
 func monitor(pid string) {
 	log.Println("Monitoring pid: ", pid)
-	jvm := jvms[pid]
+	jvm, ok := jvms[pid]
+	if !ok {
+		log.Println("Unknown pid:", pid)
+		return
+	}
 	go attachAgent(jvm, jar, port)
 }
 
 func attachAgent(jvm JVM, jar string, port string) {
 	err := jvm.AttachAndLoadAgent(jar, port)
 	if err != nil {
-		log.Println("Cannot attach to pid ", jvm.Pid)
+		log.Println("Cannot attach to pid ", jvm.Pid, err)
 		eb.Publish("attach-error", jvm.Pid)
 	}
 }
