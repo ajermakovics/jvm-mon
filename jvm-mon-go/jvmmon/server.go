@@ -2,108 +2,117 @@ package jvmmon
 
 import (
 	"bufio"
-	"github.com/asaskevich/EventBus"
+	"errors"
 	"log"
 	"net"
+	"sync"
+
+	"github.com/asaskevich/EventBus"
 )
 
-type Server struct {
-	Port     int
-	Messages chan string
+// maxMessageSize limits a single metrics line to guard against runaway clients.
+const maxMessageSize = 1 << 20
 
-	listener    net.Listener
-	client      net.Conn
+type Server struct {
+	Port        int
+	Messages    chan string
 	Connections chan net.Addr
+
+	listener net.Listener
+	mu       sync.Mutex
+	client   net.Conn
 }
 
 func NewServer(eb EventBus.Bus) (*Server, error) {
-	listener, err := net.Listen("tcp", ":0")
-	if listener == nil {
-		log.Fatal("Cannot listen", err)
+	// Bind to loopback only: the agent always connects to 127.0.0.1
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
 		return nil, err
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	log.Println("Server listening on port:", port)
-	messages := make(chan string)
-	connections := make(chan net.Addr)
-	server := Server{port, messages, listener, nil, connections}
+
+	server := &Server{
+		Port:        port,
+		Messages:    make(chan string, 16),
+		Connections: make(chan net.Addr, 4),
+		listener:    listener,
+	}
 	go server.acceptConnections()
 
-	eb.Subscribe("jvm-selected", func(pid string) {
-		server.closeClient() // close existing
+	err = eb.Subscribe("jvm-selected", func(pid string) {
+		server.setClient(nil) // close existing
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &server, nil
+	return server, nil
 }
 
 func (server *Server) acceptConnections() {
-	conns := server.clientConns()
 	for {
-		conn := <-conns
-		server.closeClient()
-		server.client = conn
+		conn, err := server.listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			log.Println("Could not accept:", err)
+			continue
+		}
+		log.Println("Accepted conn", conn.RemoteAddr())
+		select {
+		case server.Connections <- conn.RemoteAddr():
+		default:
+		}
+		server.setClient(conn)
 		go server.handleConn(conn)
 	}
 }
 
-func (server *Server) closeClient() {
-	if server.client != nil {
+// setClient replaces the current client, closing the previous one.
+func (server *Server) setClient(conn net.Conn) {
+	server.mu.Lock()
+	prev := server.client
+	server.client = conn
+	server.mu.Unlock()
+
+	if prev != nil {
 		log.Println("Closing existing connection")
-		err := server.client.Close()
-		logErr("Error closing client", err)
-		server.client = nil
-		log.Println("Closed connection")
+		logErr("Error closing client", prev.Close())
 	}
 }
 
-func (server *Server) clientConns() chan net.Conn {
-	ch := make(chan net.Conn)
-
-	go func() {
-		for {
-			client, err := server.listener.Accept()
-			if err != nil {
-				log.Fatal("Could not accept", err)
-				continue
-			}
-			log.Println("Accepted conn", client.RemoteAddr())
-			server.Connections <- client.RemoteAddr()
-			ch <- client
-		}
-	}()
-	return ch
+func (server *Server) isCurrent(conn net.Conn) bool {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	return server.client == conn
 }
 
-func (server *Server) readLine(b *bufio.Reader) (string, error) {
-	message := ""
-	for {
-		lineBytes, isPrefix, err := b.ReadLine()
-		line := string(lineBytes)
-		if err != nil { // EOF, or worse
-			return message, err
-		}
-		message += line
-		if !isPrefix { // read until '\n'
-			return message, nil
-		}
-	}
-	return message, nil
+func (server *Server) Close() error {
+	server.setClient(nil)
+	return server.listener.Close()
 }
 
 func (server *Server) handleConn(client net.Conn) {
 	addr := client.RemoteAddr()
-	b := bufio.NewReader(client)
-	for {
-		message, err := server.readLine(b)
-		if err != nil { // EOF, or worse
-			log.Println("Connection read error ", addr, " ", err)
+	scanner := bufio.NewScanner(client)
+	scanner.Buffer(make([]byte, 64*1024), maxMessageSize)
+	for scanner.Scan() {
+		if !server.isCurrent(client) { // stale connection from previously selected JVM
 			break
 		}
-		server.Messages <- message
+		server.Messages <- scanner.Text()
 	}
-	log.Println("Client disconnected ", addr)
-	if server.client != nil && client.RemoteAddr() == server.client.RemoteAddr() {
-		log.Println("Clearing cur client ", addr)
+	if err := scanner.Err(); err != nil {
+		log.Println("Connection read error", addr, err)
+	}
+	log.Println("Client disconnected", addr)
+
+	server.mu.Lock()
+	if server.client == client {
 		server.client = nil
 	}
+	server.mu.Unlock()
+	_ = client.Close()
 }
