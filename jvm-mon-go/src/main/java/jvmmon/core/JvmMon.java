@@ -28,12 +28,12 @@ public class JvmMon {
     }
 
     public Metrics getMetrics() throws Exception {
-        Runtime rt = Runtime.getRuntime();
+        final Runtime rt = Runtime.getRuntime();
         long usedMem = (rt.totalMemory() - rt.freeMemory())/1024/1024;
         long maxMem = rt.maxMemory()/1024/1024;
         double load = getProcessCpuLoad();
 
-        Metrics metrics = new Metrics();
+        final Metrics metrics = new Metrics();
         metrics.Used = usedMem;
         metrics.Max = maxMem;
         metrics.Load = load;
@@ -44,14 +44,14 @@ public class JvmMon {
     }
 
     public double getProcessCpuLoad() throws Exception {
-        ObjectName osObj = ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME);
-        AttributeList osAttrs = mbs.getAttributes(osObj, new String[]{"ProcessCpuLoad"});
+        final ObjectName osObj = ObjectName.getInstance(OPERATING_SYSTEM_MXBEAN_NAME);
+        final AttributeList osAttrs = mbs.getAttributes(osObj, new String[]{"ProcessCpuLoad"});
 
         if (osAttrs.isEmpty())
             return 0;
 
-        Attribute att = (Attribute) osAttrs.get(0);
-        Double value =  (Double) att.getValue();
+        final Attribute att = (Attribute) osAttrs.get(0);
+        final Double value =  (Double) att.getValue();
 
         // usually takes a couple of seconds before we get real values
         if (value == -1.0)
@@ -61,24 +61,28 @@ public class JvmMon {
     }
 
     public JThreads getThreads(int max) throws Exception {
-        ThreadMXBean mbean = getThreadMXBean();
-        List<JThread> threadList = new ArrayList<>();
+        final ThreadMXBean mbean = getThreadMXBean();
+        final List<JThread> threadList = new ArrayList<>();
+        final Set<Long> alive = new HashSet<>();
+        boolean cpuTimeOn = mbean.isThreadCpuTimeSupported() && mbean.isThreadCpuTimeEnabled();
 
         long[] ids = mbean.getAllThreadIds();
-        List<ThreadInfo> threadInfos = Arrays.asList(mbean.getThreadInfo(ids));
+        final ThreadInfo[] threadInfos = mbean.getThreadInfo(ids);
 
-        for(ThreadInfo ti: threadInfos) {
-            long cpuTime = 0;
+        for (ThreadInfo ti : threadInfos) {
+            if (ti == null) // thread exited between calls
+                continue;
             long tid = ti.getThreadId();
-            if(mbean.isThreadCpuTimeSupported() && mbean.isThreadCpuTimeEnabled())
-                cpuTime = mbean.getThreadCpuTime(tid);
+            long cpuTime = cpuTimeOn ? mbean.getThreadCpuTime(tid) : 0;
 
-            JThread thread = threads.compute(tid, (id, tCur) -> tCur == null ? new JThread(ti) : tCur);
-
+            JThread thread = threads.computeIfAbsent(tid, id -> new JThread(ti)).update(ti);
+            alive.add(tid);
             threadList.add(thread.withCpuTime(cpuTime));
         }
 
-        List<JThread> jThreads = threads.values().stream()
+        threads.keySet().retainAll(alive); // drop dead threads
+
+        final List<JThread> jThreads = threadList.stream()
                 .sorted(Comparator.<JThread>comparingLong(t -> t.CpuTime).reversed())
                 .limit(max)
                 .collect(Collectors.toList());

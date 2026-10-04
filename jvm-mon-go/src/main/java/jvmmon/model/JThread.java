@@ -16,16 +16,21 @@ public class JThread implements Jsonable {
         Name = ti.getThreadName();
         State = ti.getThreadState();
 
-        if(Name.length() > 25)
-            Name = Name.substring(0, 24);
+        if (Name == null)
+            Name = "";
+        if (Name.length() > 25)
+            Name = Name.substring(0, 25);
     }
 
+    public JThread update(ThreadInfo ti) {
+        State = ti.getThreadState();
+        return this;
+    }
+
+    /** Stores CPU time used since previous sample (0 on first sample or if unsupported) */
     public JThread withCpuTime(long cpuTime) {
-        if(prevCpuTime != 0) {
-            CpuTime = cpuTime - prevCpuTime;
-            prevCpuTime = cpuTime;
-        }
-        prevCpuTime = cpuTime;
+        CpuTime = (prevCpuTime > 0 && cpuTime >= prevCpuTime) ? cpuTime - prevCpuTime : 0;
+        prevCpuTime = Math.max(cpuTime, 0);
         return this;
     }
 

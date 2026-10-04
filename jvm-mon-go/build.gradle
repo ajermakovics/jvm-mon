@@ -1,13 +1,18 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 repositories {
     mavenCentral()
 }
 
 jar {
+    archiveFileName = 'jvm-mon-go.jar'
     manifest {
         attributes "Main-Class": "jvmmon.Agent"
         attributes "Agent-Class": "jvmmon.Agent"
@@ -19,5 +24,5 @@ jar {
 }
 
 dependencies {
-    testCompile 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.2'
 }

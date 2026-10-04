@@ -7,7 +7,6 @@ import java.net.SocketException;
 import java.time.Duration;
 import java.util.concurrent.Callable;
 
-import static java.lang.System.out;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class SocketWriter implements Runnable {
@@ -31,13 +30,11 @@ public class SocketWriter implements Runnable {
             socket = new Socket(host, port);
             osw = new OutputStreamWriter(socket.getOutputStream(), UTF_8);
 
-            while(socket.isConnected()) {
+            while (!socket.isClosed() && !Thread.currentThread().isInterrupted()) {
                 String message;
                 try {
                     message = messageSupplier.call();
                 } catch (Exception e) {
-                    System.err.println("Error getting message: " + e.getClass() + " " + e.getMessage());
-                    e.printStackTrace();
                     Thread.sleep(sampleInterval.toMillis());
                     continue;
                 }
@@ -47,20 +44,22 @@ public class SocketWriter implements Runnable {
             }
 
         } catch(SocketException socketEx) {
-            out.println("Disconnected. " + socketEx.getMessage());
-
-        } catch(Exception ex) {
-            System.err.println("Socket writer error: " + ex.getClass() + " - " + ex.getMessage());
+            // jvm-mon disconnected; exit quietly without polluting target app output
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+        } catch (Exception ex) {
+            // ignore: never disturb the monitored application
         } finally {
             close(socket);
         }
     }
 
     static void close(Closeable cl) {
+        if (cl == null)
+            return;
         try {
             cl.close();
-        } catch (Exception e) {
-            System.err.println("Socket close error: " + e.getMessage());
+        } catch (Exception ignored) {
         }
     }
 

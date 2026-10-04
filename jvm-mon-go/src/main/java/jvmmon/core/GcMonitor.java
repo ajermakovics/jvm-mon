@@ -42,7 +42,7 @@ public class GcMonitor {
             prevGcTime = gcTime;
 
             gcMbeans = getGarbageCollectorMXBeans();
-            gcTime = -1;
+            gcTime = 0;
             for (GarbageCollectorMXBean gcBean : gcMbeans)
                 gcTime += gcBean.getCollectionTime();
 
@@ -60,7 +60,6 @@ public class GcMonitor {
             return gcUsage;
 
         } catch (Exception e) {
-            e.printStackTrace();
             return 0;
         }
     }
@@ -109,6 +108,7 @@ public class GcMonitor {
     }
 
     public void stop() {
-        gcMbeans.clear();
+        if (gcMbeans != null)
+            gcMbeans.clear();
     }
 }

@@ -1,10 +1,10 @@
 package jvmmon
 
 import (
+	"errors"
 	"fmt"
 	"github.com/tokuhirom/go-hsperfdata/attach"
 	hs "github.com/tokuhirom/go-hsperfdata/hsperfdata"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -23,14 +23,13 @@ type JVM struct {
 	socket   *attach.Socket
 }
 
+// GetCurUser returns the effective user name. Falls back to $USER when the
+// user database lookup fails (e.g. static binary without a passwd entry).
 func GetCurUser() string {
-	var user string
-	if runtime.GOOS == "windows" {
-		user = os.Getenv("USERNAME")
-	} else {
-		user = os.Getenv("USER")
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		return u.Username
 	}
-	return user
+	return os.Getenv("USER")
 }
 
 func newRepository(user string) (*hs.Repository, error) {
@@ -47,26 +46,30 @@ func attachPid(pid string, pidUser string) {
 	if curUser != pidUser && curUser == "root" { // root on linux
 
 		pidDir := fmt.Sprintf("/proc/%s/cwd", pid)
-		exists, _ := exists(pidDir)
-
-		if exists {
-			usr, _ := user.Lookup(pidUser)
-			uid, _ := strconv.Atoi(usr.Uid)
-			gid, _ := strconv.Atoi(usr.Gid)
-
-			log.Println("Attaching to JVM of user id: ", uid, gid)
-			attachFile := fmt.Sprintf("/proc/%s/cwd/.attach_pid%s", pid, pid)
-			f, err := os.Create(attachFile)
-
-			if err != nil {
-				log.Println(fmt.Sprintf("Canot create file %v %v", attachFile, err))
-			} else {
-				err := os.Chown(attachFile, uid, gid)
-				logErr("chown error ", err)
-
-			}
-			logErr("Cannot close", f.Close())
+		if ok, _ := exists(pidDir); !ok {
+			return
 		}
+		usr, err := user.Lookup(pidUser)
+		if err != nil {
+			log.Println("Cannot lookup user", pidUser, err)
+			return
+		}
+		uid, err1 := strconv.Atoi(usr.Uid)
+		gid, err2 := strconv.Atoi(usr.Gid)
+		if err1 != nil || err2 != nil {
+			log.Println("Invalid uid/gid for user", pidUser, usr.Uid, usr.Gid)
+			return
+		}
+
+		log.Println("Attaching to JVM of user id: ", uid, gid)
+		attachFile := fmt.Sprintf("/proc/%s/cwd/.attach_pid%s", pid, pid)
+		f, err := os.Create(attachFile)
+		if err != nil {
+			log.Printf("Cannot create file %v %v", attachFile, err)
+			return
+		}
+		logErr("chown error ", os.Chown(attachFile, uid, gid))
+		logErr("Cannot close", f.Close())
 	}
 }
 
@@ -91,7 +94,10 @@ func (j *JVM) Attach() error {
 	if j.Attached() {
 		return nil
 	}
-	pidNr, _ := strconv.Atoi(j.Pid)
+	pidNr, err := strconv.Atoi(j.Pid)
+	if err != nil {
+		return fmt.Errorf("invalid pid %q: %w", j.Pid, err)
+	}
 	socketFile, _ := attach.GetSocketFile(pidNr)
 	log.Println("Socket file:", socketFile)
 
@@ -110,6 +116,9 @@ func (j *JVM) Attach() error {
 func (j *JVM) Detach() error {
 	sock := j.socket
 	j.socket = nil
+	if sock == nil {
+		return nil
+	}
 	return sock.Close()
 }
 
@@ -118,15 +127,21 @@ func (j *JVM) Attached() bool {
 }
 
 func (j *JVM) Properties() (string, error) {
+	if j.socket == nil {
+		return "", errors.New("not attached")
+	}
 	err := j.socket.Execute("properties")
 	if err != nil {
-		log.Fatal("Properties error ", err)
+		log.Println("Properties error ", err)
 		return "", err
 	}
 	return j.socket.ReadString()
 }
 
 func (j *JVM) LoadAgent(agentJar string, args string) error {
+	if j.socket == nil {
+		return errors.New("not attached")
+	}
 	absolute := "false"
 	agent := agentJar + "=" + args
 	err := j.socket.Execute("load", "instrument", absolute, agent)
@@ -136,7 +151,7 @@ func (j *JVM) LoadAgent(agentJar string, args string) error {
 	}
 	out, er := j.socket.ReadString()
 	if er != nil {
-		log.Println("LoadAgent out error ", err)
+		log.Println("LoadAgent out error ", er)
 		return er
 	}
 	log.Println("LoadAgent out ", out)
@@ -155,32 +170,37 @@ func (j *JVM) AttachAndLoadAgent(jar string, args string) error {
 	err = j.LoadAgent(jar, args)
 	if err == nil {
 		log.Println("Loaded agent")
-		return err
-	} else {
-		log.Println("Load agent error ", err)
+		return nil
 	}
-	return j.Detach()
+	log.Println("Load agent error ", err)
+	logErr("Detach error ", j.Detach())
+	return err
 }
 
 func GetJvmPidsByUser() (*map[string]string, error) {
 	var users = make(map[string]string)
-	numbers := regexp.MustCompile("[0-9]+")
+	numbers := regexp.MustCompile("^[0-9]+$")
 
-	err := filepath.Walk(os.TempDir(), func(path string, info os.FileInfo, err error) error {
-		if strings.Contains(path, "hsperfdata_") && info.Mode().IsRegular() {
-			parts := strings.Split(path, string(os.PathSeparator))
-			pidFile := parts[len(parts)-1]
-
-			if numbers.MatchString(pidFile) {
-				userDir := parts[len(parts)-2]
-				user := strings.Split(userDir, "_")[1]
-				users[pidFile] = user
+	// hsperfdata dirs live directly in the temp dir: <tmp>/hsperfdata_<user>/<pid>
+	dirs, err := filepath.Glob(filepath.Join(os.TempDir(), "hsperfdata_*"))
+	if err != nil {
+		return &users, err
+	}
+	for _, dir := range dirs {
+		user := strings.TrimPrefix(filepath.Base(dir), "hsperfdata_")
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			log.Println("Cannot read", dir, err)
+			continue
+		}
+		for _, e := range entries {
+			if e.Type().IsRegular() && numbers.MatchString(e.Name()) {
+				users[e.Name()] = user
 			}
 		}
-		return nil
-	})
+	}
 
-	return &users, err
+	return &users, nil
 }
 
 func GetJVMUsers() []string {
@@ -192,11 +212,11 @@ func GetJVMUsers() []string {
 			userPids[user] = pid
 		}
 	} else {
-		log.Fatal("Error finding JVMs: ", err)
+		log.Println("Error finding JVMs: ", err)
 	}
 
 	var users []string
-	for user, _ := range userPids {
+	for user := range userPids {
 		users = append(users, user)
 	}
 	return users
@@ -246,7 +266,7 @@ func GetUserJVMs(user string) (map[string]JVM, error) {
 			splitted := strings.Split(procName, string(os.PathSeparator))
 			procName = splitted[len(splitted)-1]
 			props := res.GetMap()
-			jvmVer := props["java.property.java.vm.specification.version"].(string)
+			jvmVer, _ := props["java.property.java.vm.specification.version"].(string)
 
 			jvm = JVM{f.GetPid(), procName, user, jvmVer, nil}
 		} else {
@@ -264,7 +284,7 @@ func getCmdline(pid string) string {
 		return ""
 	}
 	cmdlinePath := filepath.Join("/proc", pid, "cmdline")
-	cmdline, err := ioutil.ReadFile(cmdlinePath)
+	cmdline, err := os.ReadFile(cmdlinePath)
 	if err != nil {
 		log.Println("Cannot read ", cmdlinePath, err)
 		return ""

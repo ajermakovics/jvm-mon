@@ -5,15 +5,27 @@ import (
 	"github.com/asaskevich/EventBus"
 	ui "github.com/gizak/termui/v3" // <- ui shortcut, optional
 	"github.com/gizak/termui/v3/widgets"
+	"sort"
 	"strconv"
 )
-
-// "log"
 
 func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb EventBus.Bus) *widgets.Table {
 	labels := []string{"PID", "Ver.", "User", "Main"}
 	rows := [][]string{labels}
-	for pid, jvm := range data {
+	pids := make([]string, 0, len(data))
+	for pid := range data {
+		pids = append(pids, pid)
+	}
+	sort.Slice(pids, func(i, k int) bool {
+		a, errA := strconv.Atoi(pids[i])
+		b, errB := strconv.Atoi(pids[k])
+		if errA != nil || errB != nil {
+			return pids[i] < pids[k]
+		}
+		return a < b
+	})
+	for _, pid := range pids {
+		jvm := data[pid]
 		rows = append(rows, []string{pid, jvm.Version, jvm.User, jvm.ProcName})
 	}
 
@@ -33,6 +45,8 @@ func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb Event
 	table.RowStyles[selected] = ui.NewStyle(ui.ColorYellow)
 
 	eb.SubscribeAsync("keyboard-events", func(e string) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		if e == "<Up>" {
 			if selected > 1 {
 				table.RowStyles[selected] = ui.NewStyle(ui.ColorWhite)
@@ -53,11 +67,13 @@ func NewNavTable(data map[string]JVM, borderLabel string, rowCount int, eb Event
 
 		if e == "<Enter>" {
 			pid := rows[selected][0]
-			eb.Publish("jvm-selected", pid)
+			go eb.Publish("jvm-selected", pid) // outside UI lock: handlers take it too
 		}
 	}, false)
 
 	eb.SubscribeAsync("attach-error", func(pid string) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		rowIndex := findIndex(rows, pid)
 		if rowIndex > -1 {
 			table.RowStyles[rowIndex] = ui.NewStyle(ui.ColorRed)
@@ -89,6 +105,8 @@ func NewThreadTable(rowCount int, eb EventBus.Bus) *widgets.Table {
 	table.ColumnWidths = []int{6, 15, 10, -1}
 
 	eb.Subscribe("metrics.Threads", func(threads Threads) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		threadArr := threads.Threads
 		table.Title = "Threads (" + strconv.Itoa(threads.Count) + ")"
 
@@ -104,6 +122,8 @@ func NewThreadTable(rowCount int, eb EventBus.Bus) *widgets.Table {
 	})
 
 	eb.Subscribe("jvm-selected", func(pid string) { // clear
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		table.Rows = [][]string{threadTableLabels()}
 		table.Title = "Threads"
 		ui.Render(table)
@@ -134,6 +154,8 @@ func NewMemChart(eb EventBus.Bus) *widgets.SparklineGroup {
 	slg.Title = "Memory"
 
 	eb.Subscribe("metrics", func(metrics Metrics) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		maxX := slg.Bounds().Max.X
 		data := append(chart.Data, metrics.Used)
 		if len(data) > maxX/2 {
@@ -146,8 +168,10 @@ func NewMemChart(eb EventBus.Bus) *widgets.SparklineGroup {
 	})
 
 	eb.Subscribe("jvm-selected", func(pid string) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		chart.Data = []float64{}
-		slg.Title = fmt.Sprintf("Memory")
+		slg.Title = "Memory"
 		ui.Render(slg)
 	})
 
@@ -164,6 +188,8 @@ func NewCpuChart(eb EventBus.Bus) *widgets.Plot {
 	chart.PlotType = widgets.LineChart
 
 	eb.Subscribe("metrics", func(metrics Metrics) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		maxX := chart.Bounds().Max.X
 		data := append(chart.Data[0], metrics.Load)
 		if len(data) > maxX/2 {
@@ -176,8 +202,10 @@ func NewCpuChart(eb EventBus.Bus) *widgets.Plot {
 	})
 
 	eb.Subscribe("jvm-selected", func(pid string) {
+		uiMu.Lock()
+		defer uiMu.Unlock()
 		chart.Data[0] = []float64{0, 0}
-		chart.Title = fmt.Sprintf("CPU %")
+		chart.Title = "CPU %"
 		ui.Render(chart)
 	})
 
