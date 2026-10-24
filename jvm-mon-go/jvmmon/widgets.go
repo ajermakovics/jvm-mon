@@ -178,11 +178,16 @@ func NewMemChart(eb EventBus.Bus) *widgets.SparklineGroup {
 	return slg
 }
 
+// cpuChartValues returns CPU and GC load as percentages. The agent sends GC
+// usage in tenths of a percent.
+func cpuChartValues(metrics Metrics) [2]float64 {
+	return [2]float64{metrics.Load, metrics.GcUsage / 10}
+}
+
 func NewCpuChart(eb EventBus.Bus) *widgets.Plot {
 	chart := widgets.NewPlot()
-	chart.Data = make([][]float64, 1)
-	chart.Data[0] = []float64{0, 0}
-	chart.LineColors[0] = ui.ColorYellow
+	chart.Data = [][]float64{{0, 0}, {0, 0}}
+	chart.LineColors = []ui.Color{ui.ColorYellow, ui.ColorRed}
 	chart.TitleStyle.Fg = ui.ColorWhite
 	chart.AxesColor = ui.ColorWhite
 	chart.PlotType = widgets.LineChart
@@ -191,21 +196,24 @@ func NewCpuChart(eb EventBus.Bus) *widgets.Plot {
 		uiMu.Lock()
 		defer uiMu.Unlock()
 		maxX := chart.Bounds().Max.X
-		data := append(chart.Data[0], metrics.Load)
-		if len(data) > maxX/2 {
-			data = data[1:]
+		values := cpuChartValues(metrics)
+		for i, value := range values {
+			data := append(chart.Data[i], value)
+			if len(data) > maxX/2 {
+				data = data[1:]
+			}
+			chart.Data[i] = data
 		}
-		chart.Data[0] = data
 
-		chart.Title = fmt.Sprintf("CPU: %d ", int(metrics.Load)) + "%"
+		chart.Title = fmt.Sprintf("CPU: %d%%, GC: %.1f%%", int(values[0]), values[1])
 		ui.Render(chart)
 	})
 
 	eb.Subscribe("jvm-selected", func(pid string) {
 		uiMu.Lock()
 		defer uiMu.Unlock()
-		chart.Data[0] = []float64{0, 0}
-		chart.Title = "CPU %"
+		chart.Data = [][]float64{{0, 0}, {0, 0}}
+		chart.Title = "CPU % / GC %"
 		ui.Render(chart)
 	})
 
