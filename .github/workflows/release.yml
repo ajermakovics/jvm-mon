@@ -3,6 +3,11 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach archives to
+        required: true
 
 permissions:
   contents: write
@@ -10,13 +15,15 @@ permissions:
 jobs:
   archives:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
     defaults:
       run:
         working-directory: jvm-mon-go
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-java@v4
         with:
@@ -38,5 +45,4 @@ jobs:
       - name: Upload to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$TAG" build/*.tgz build/sha256sums.txt --clobber
