@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  archives:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: jvm-mon-go
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: jvm-mon-go/go.mod
+          cache-dependency-path: jvm-mon-go/go.sum
+
+      - name: Build archives
+        run: ./build.sh
+
+      - name: Create checksums
+        working-directory: jvm-mon-go/build
+        run: sha256sum *.tgz > sha256sums.txt
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" build/*.tgz build/sha256sums.txt --clobber
